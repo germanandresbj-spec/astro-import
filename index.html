@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ASTRO IMPORT - MOVILE Pro</title>
+    
+     <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dexie/3.2.4/dexie.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        :root { --azul-rey: #0041ab; }
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            background-color: #f1f5f9; 
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: contain;
+        }
+        .bg-azul-rey { background-color: var(--azul-rey); }
+        .text-azul-rey { color: var(--azul-rey); }
+        
+        /* Optimización Táctil */
+        input, button, select { font-size: 16px !important; } /* Evita zoom automático en iOS */
+        .btn-tocar { min-height: 48px; min-width: 48px; }
+        
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        
+        .excel-table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+        .excel-table th { background: var(--azul-rey); color: white; padding: 12px; border: 1px solid #cbd5e1; position: sticky; top: 0; }
+        .excel-table td { padding: 12px; border: 1px solid #cbd5e1; background: white; }
+
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--azul-rey); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Animaciones suaves para móviles */
+        .slide-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header Optimizado -->
+    <header class="bg-azul-rey text-white px-4 py-3 shadow-lg flex justify-between items-center z-50">
+        <div class="flex items-center gap-3">
+            <button onclick="App.UI.toggleMenu()" class="btn-tocar hover:bg-blue-800 rounded-lg lg:hidden flex items-center justify-center">
+                <i data-lucide="menu"></i>
+            </button>
+            <div id="logoContainer" class="max-h-10 max-w-[120px] bg-white rounded flex items-center justify-center p-1 overflow-hidden">
+                <i data-lucide="box" class="text-azul-rey w-6 h-6"></i>
+            </div>
+            <div class="hidden sm:block">
+                <h1 class="font-bold text-sm leading-none uppercase tracking-tighter">ASTRO IMPORT</h1>
+            </div>
+        </div>
+        <div class="flex gap-1">
+            <button onclick="App.UI.toggleCart()" class="btn-tocar relative bg-white/10 rounded-full flex items-center justify-center">
+                <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+                <span id="cartCount" class="absolute -top-1 -right-1 bg-red-500 text-[9px] font-bold h-4 w-4 rounded-full flex items-center justify-center hidden">0</span>
+            </button>
+            <button onclick="App.UI.openAdmin()" class="btn-tocar bg-white/10 rounded-full flex items-center justify-center">
+                <i data-lucide="settings" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Sidebar para Tablets/PC -->
+        <aside id="sidebar" class="w-64 bg-white border-r shadow-2xl absolute lg:relative z-40 h-full transition-transform -translate-x-full lg:translate-x-0">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                <span class="font-black text-[10px] text-slate-400 uppercase tracking-widest">Categorías</span>
+                <button onclick="App.UI.toggleMenu()" class="lg:hidden p-2"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div id="categoryList" class="overflow-y-auto h-[calc(100%-60px)] p-2 space-y-1 no-scrollbar"></div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="flex-1 flex flex-col min-w-0 bg-slate-50">
+            <!-- Buscador Táctil -->
+            <div class="bg-white p-3 shadow-sm border-b z-30">
+                <div class="relative max-w-2xl mx-auto flex gap-2">
+                    <div class="relative flex-1">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                        <input type="text" id="searchInput" placeholder="Buscar producto..." 
+                               class="w-full pl-9 pr-9 py-3 bg-slate-100 border-none rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium">
+                        <button onclick="App.Core.voiceSearch()" class="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 p-1">
+                            <i data-lucide="mic" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scroll de Productos -->
+            <div id="scrollArea" class="flex-1 overflow-y-auto p-3 space-y-6 no-scrollbar">
+                <!-- Grid Visual -->
+                <section>
+                    <div id="visualGrid" class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3"></div>
+                </section>
+
+                <!-- Tabla Detallada -->
+                <section class="pb-24">
+                    <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+                        <table class="excel-table">
+                            <thead>
+                                <tr>
+                                    <th class="text-left text-[10px]">CÓDIGO</th>
+                                    <th class="text-left text-[10px]">DESCRIPCIÓN</th>
+                                    <th class="text-right text-[10px]">REF.</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Ficha Técnica (Adaptado para móvil) -->
+    <div id="modalFicha" class="fixed inset-0 bg-black/70 z-[100] hidden flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl slide-up">
+            <div class="h-1.5 w-12 bg-slate-300 rounded-full mx-auto mt-3 sm:hidden"></div>
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <span id="fichaMarca" class="bg-blue-100 text-azul-rey text-[10px] font-black px-2 py-1 rounded-lg uppercase tracking-widest"></span>
+                    <button onclick="App.UI.closeModal('modalFicha')" class="p-2 bg-slate-100 rounded-full"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+                <div class="aspect-square bg-white rounded-3xl mb-6 flex items-center justify-center border-2 border-slate-100 shadow-inner overflow-hidden">
+                    <img id="fichaImg" class="w-full h-full object-contain p-4">
+                </div>
+                <h2 id="fichaDesc" class="text-xl font-bold text-slate-800 uppercase leading-tight mb-4"></h2>
+                <div class="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-2xl mb-6">
+                    <div>
+                        <p class="text-[9px] text-slate-400 font-black uppercase">Código</p>
+                        <p id="fichaCod" class="font-bold text-slate-700"></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[9px] text-slate-400 font-black uppercase">Referencia</p>
+                        <p id="fichaRefInt" class="font-black text-2xl text-azul-rey"></p>
+                    </div>
+                </div>
+                <button id="btnAddFromFicha" class="w-full bg-azul-rey text-white py-4 rounded-2xl font-bold text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2">
+                    <i data-lucide="plus" class="w-6 h-6"></i> AGREGAR AL PEDIDO
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Carrito -->
+    <div id="modalCart" class="fixed inset-0 bg-black/60 z-[100] hidden flex justify-end">
+        <div class="bg-white w-full max-w-md h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+            <div class="p-5 border-b flex justify-between items-center">
+                <h2 class="font-black text-azul-rey uppercase flex items-center gap-2"><i data-lucide="shopping-bag"></i> Pedido Actual</h2>
+                <button onclick="App.UI.toggleCart()" class="p-2"><i data-lucide="x"></i></button>
+            </div>
+            <div id="cartItems" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-100 no-scrollbar"></div>
+            <div class="p-6 bg-white border-t">
+                <div class="flex justify-between items-end mb-4">
+                    <span class="text-xs font-black text-slate-400 uppercase">Total Valor</span>
+                    <span id="cartTotal" class="text-3xl font-black text-azul-rey">$0</span>
+                </div>
+                <button onclick="App.UI.openCheckout()" class="w-full bg-green-600 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 uppercase tracking-tighter">
+                    <i data-lucide="check-circle"></i> Finalizar Nota
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modales de Admin y Checkout se mantienen con el diseño anterior optimizado... -->
+    <!-- (Incluimos el resto de la lógica por integridad) -->
+    
+    <!-- Modal Checkout -->
+    <div id="modalCheckout" class="fixed inset-0 bg-black/80 z-[110] hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+            <h3 class="font-black text-azul-rey uppercase mb-4 text-center">Datos del Cliente</h3>
+            <div class="space-y-3">
+                <input type="text" id="cliNombre" placeholder="Nombre" class="w-full p-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold uppercase">
+                <input type="text" id="cliNit" placeholder="NIT / Identificación" class="w-full p-4 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button onclick="App.UI.closeModal('modalCheckout')" class="flex-1 bg-slate-200 py-3 rounded-xl font-bold uppercase text-xs">Atrás</button>
+                <button onclick="App.Cart.generatePDF()" class="flex-1 bg-azul-rey text-white py-3 rounded-xl font-bold uppercase text-xs">PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Admin -->
+    <div id="modalAdmin" class="fixed inset-0 bg-slate-900 z-[120] hidden flex flex-col text-white">
+        <div class="p-6 flex justify-between items-center border-b border-white/10">
+            <h2 class="font-black text-blue-400 uppercase tracking-widest">Configuración</h2>
+            <button onclick="App.UI.closeModal('modalAdmin')" class="p-2"><i data-lucide="x"></i></button>
+        </div>
+        <div class="p-6 space-y-6 flex-1 overflow-y-auto">
+            <div class="bg-white/5 p-6 rounded-3xl border border-white/10">
+                <p class="text-xs text-slate-400 mb-4">Carga la carpeta con IMAGENES y el EXCEL.</p>
+                <label class="block w-full border-2 border-dashed border-blue-500/30 rounded-2xl p-8 text-center cursor-pointer">
+                    <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+                    <i data-lucide="upload" class="w-10 h-10 mx-auto mb-2 text-blue-500"></i>
+                    <span class="block font-bold">Seleccionar Carpeta</span>
+                </label>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <label class="py-4 bg-slate-800 rounded-2xl text-center cursor-pointer border border-white/10 font-bold text-[10px] uppercase flex flex-col items-center justify-center">
+                    <input type="file" id="logoInput" accept="image/*" class="hidden">
+                    <i data-lucide="image" class="w-5 h-5 mb-1"></i> Logo
+                </label>
+                <button onclick="App.Admin.clearAll()" class="py-4 bg-red-900/20 text-red-500 border border-red-500/30 rounded-2xl font-bold text-[10px] uppercase">Limpiar Todo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loader & Toast -->
+    <div id="globalLoader" class="fixed inset-0 bg-black/80 z-[200] hidden flex flex-col items-center justify-center backdrop-blur-md">
+        <div class="loader mb-4"></div>
+        <p id="loaderMsg" class="text-white font-black text-[10px] uppercase tracking-widest"></p>
+    </div>
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-6 py-3 rounded-full text-[10px] font-bold shadow-2xl opacity-0 transition-opacity z-[300] uppercase"></div>
+
+    <script>
+        const App = (() => {
+            const db = new Dexie('AstroImportDB');
+            db.version(1).stores({
+                productos: 'codigo, categoria, marca, descripcion, precio, promo, imagen_ref',
+                imagenes: 'nombre, tipo',
+                config: 'id',
+                ventas: '++id, fecha, cliente'
+            });
+
+            let state = { allProducts: [], filteredProducts: [], categories: [], currentCategory: 'TODOS', cart: [], imgMap: new Map() };
+
+            const Core = {
+                async init() {
+                    lucide.createIcons();
+                    await this.loadLogo();
+                    await this.loadData();
+                    UI.renderCategories();
+                    this.filter();
+                },
+                async loadData() {
+                    state.allProducts = await db.productos.toArray();
+                    state.categories = ['TODOS', ...new Set(state.allProducts.map(p => p.categoria))].filter(Boolean);
+                    const imgs = await db.imagenes.toArray();
+                    state.imgMap.clear();
+                    imgs.forEach(i => state.imgMap.set(i.nombre, URL.createObjectURL(i.data)));
+                },
+                async loadLogo() {
+                    const l = await db.config.get('logo');
+                    if(l) {
+                        const url = URL.createObjectURL(l.data);
+                        document.getElementById('logoContainer').innerHTML = `<img src="${url}" class="max-h-full max-w-full object-contain">`;
+                    }
+                },
+                filter() {
+                    const q = document.getElementById('searchInput').value.toUpperCase();
+                    state.filteredProducts = state.allProducts.filter(p => {
+                        const mCat = state.currentCategory === 'TODOS' || p.categoria === state.currentCategory;
+                        const mQuery = !q || p.codigo.includes(q) || p.descripcion.includes(q) || p.marca.includes(q);
+                        return mCat && mQuery;
+                    }).sort((a,b) => a.descripcion.localeCompare(b.descripcion));
+                    UI.renderProducts();
+                },
+                toRefInterna(v) {
+                    const n = Math.round(Number(v)) || 0;
+                    return String(n).padStart(9, '0').replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                },
+                voiceSearch() {
+                    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+                    if(!SR) return UI.toast("Voz no soportada");
+                    const rec = new SR();
+                    rec.onstart = () => UI.toast("Escuchando...");
+                    rec.onresult = (e) => { document.getElementById('searchInput').value = e.results[0][0].transcript; this.filter(); };
+                    rec.start();
+                }
+            };
+
+            const UI = {
+                renderCategories() {
+                    const list = document.getElementById('categoryList');
+                    list.innerHTML = state.categories.map(cat => `
+                        <button onclick="App.UI.selectCategory('${cat}')" 
+                                class="w-full text-left px-4 py-4 rounded-2xl font-bold text-xs uppercase transition-all 
+                                ${state.currentCategory === cat ? 'bg-azul-rey text-white' : 'text-slate-500 active:bg-slate-100'}">
+                            ${cat}
+                        </button>
+                    `).join('');
+                },
+                renderProducts() {
+                    const grid = document.getElementById('visualGrid');
+                    const body = document.getElementById('tableBody');
+                    grid.innerHTML = ''; body.innerHTML = '';
+
+                    state.filteredProducts.forEach(p => {
+                        const imgKey = p.imagen_ref || p.codigo;
+                        const hasImg = state.imgMap.has(imgKey);
+                        
+                        if(hasImg) {
+                            const card = document.createElement('div');
+                            card.className = "bg-white p-2 rounded-2xl shadow-sm border border-slate-200 active:scale-95 cursor-pointer";
+                            card.onclick = () => this.openFicha(p);
+                            card.innerHTML = `
+                                <div class="aspect-square bg-white rounded-xl mb-2 overflow-hidden flex items-center justify-center p-1 relative">
+                                    <img src="${state.imgMap.get(imgKey)}" class="w-full h-full object-contain" loading="lazy">
+                                    ${p.promo === 'SI' ? '<span class="absolute top-1 right-1 bg-red-500 text-white text-[7px] font-black px-1 py-0.5 rounded italic">PROMO</span>' : ''}
+                                </div>
+                                <h4 class="text-[9px] font-bold text-slate-700 leading-tight h-7 line-clamp-2 uppercase">${p.descripcion}</h4>
+                            `;
+                            grid.appendChild(card);
+                        }
+
+                        const tr = document.createElement('tr');
+                        tr.onclick = () => this.openFicha(p);
+                        tr.innerHTML = `
+                            <td class="text-[10px] font-bold text-slate-400">${p.codigo}</td>
+                            <td class="text-[10px] font-bold uppercase text-slate-700">${p.descripcion}</td>
+                            <td class="text-right font-black text-azul-rey text-xs">${Core.toRefInterna(p.precio)}</td>
+                        `;
+                        body.appendChild(tr);
+                    });
+                },
+                selectCategory(c) { state.currentCategory = c; this.renderCategories(); Core.filter(); if(window.innerWidth < 1024) this.toggleMenu(); },
+                openFicha(p) {
+                    const key = p.imagen_ref || p.codigo;
+                    document.getElementById('fichaImg').src = state.imgMap.get(key) || 'https://via.placeholder.com/400?text=Sin+Foto';
+                    document.getElementById('fichaMarca').textContent = p.marca;
+                    document.getElementById('fichaDesc').textContent = p.descripcion;
+                    document.getElementById('fichaCod').textContent = p.codigo;
+                    document.getElementById('fichaRefInt').textContent = Core.toRefInterna(p.precio);
+                    document.getElementById('btnAddFromFicha').onclick = () => { Cart.add(p); this.closeModal('modalFicha'); };
+                    document.getElementById('modalFicha').classList.remove('hidden');
+                },
+                toggleMenu() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); },
+                toggleCart() { document.getElementById('modalCart').classList.toggle('hidden'); Cart.render(); },
+                openCheckout() { if(state.cart.length) document.getElementById('modalCheckout').classList.remove('hidden'); },
+                openAdmin() { const p = prompt("PIN:"); if(p === "1QAZ") document.getElementById('modalAdmin').classList.remove('hidden'); },
+                closeModal(id) { document.getElementById(id).classList.add('hidden'); },
+                toast(m) { const t = document.getElementById('toast'); t.textContent = m; t.style.opacity = '1'; setTimeout(() => t.style.opacity = '0', 2500); },
+                showLoader(m) { document.getElementById('loaderMsg').textContent = m; document.getElementById('globalLoader').classList.remove('hidden'); },
+                hideLoader() { document.getElementById('globalLoader').classList.add('hidden'); }
+            };
+
+            const Cart = {
+                add(p) {
+                    const e = state.cart.find(i => i.codigo === p.codigo);
+                    if(e) e.cant++; else state.cart.push({...p, cant: 1, p_venta: p.precio});
+                    UI.toast("AGREGADO"); this.updateBadge();
+                },
+                updateQty(c, d) {
+                    const i = state.cart.find(x => x.codigo === c);
+                    if(i) { i.cant += d; if(i.cant <= 0) state.cart = state.cart.filter(x => x.codigo !== c); }
+                    this.render(); this.updateBadge();
+                },
+                updateBadge() {
+                    const total = state.cart.reduce((s, i) => s + i.cant, 0);
+                    const b = document.getElementById('cartCount');
+                    b.textContent = total; b.classList.toggle('hidden', total === 0);
+                },
+                render() {
+                    const cont = document.getElementById('cartItems');
+                    let tot = 0;
+                    cont.innerHTML = state.cart.map(i => {
+                        tot += (i.p_venta * i.cant);
+                        return `
+                            <div class="bg-white p-4 rounded-2xl shadow-sm flex flex-col gap-2">
+                                <div class="flex justify-between items-start">
+                                    <h5 class="text-[10px] font-bold uppercase w-2/3">${i.descripcion}</h5>
+                                    <span class="text-[8px] font-mono">${i.codigo}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <div class="flex items-center bg-slate-100 rounded-xl">
+                                        <button onclick="App.Cart.updateQty('${i.codigo}', -1)" class="p-2 text-red-500"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+                                        <span class="px-2 font-black">${i.cant}</span>
+                                        <button onclick="App.Cart.updateQty('${i.codigo}', 1)" class="p-2 text-green-500"><i data-lucide="plus-circle" class="w-4 h-4"></i></button>
+                                    </div>
+                                    <span class="font-black text-azul-rey">$${(i.p_venta * i.cant).toLocaleString()}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    document.getElementById('cartTotal').textContent = `$${tot.toLocaleString()}`;
+                    lucide.createIcons();
+                },
+                async generatePDF() {
+                    const n = document.getElementById('cliNombre').value;
+                    const nit = document.getElementById('cliNit').value;
+                    if(!n) return UI.toast("NOMBRE VACÍO");
+                    UI.showLoader("GENERANDO...");
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    doc.setFontSize(16); doc.setTextColor(0, 65, 171); doc.text("ASTRO IMPORT - PEDIDO", 10, 20);
+                    doc.setFontSize(10); doc.setTextColor(50); doc.text(`Cliente: ${n.toUpperCase()} | NIT: ${nit}`, 10, 30);
+                    let y = 45; let t_final = 0;
+                    state.cart.forEach(i => {
+                        const st = i.p_venta * i.cant; t_final += st;
+                        doc.text(`${i.codigo} | ${i.descripcion.substring(0,30)}... x${i.cant}`, 10, y);
+                        doc.text(`$${st.toLocaleString()}`, 190, y, {align: 'right'}); y += 7;
+                    });
+                    doc.setFont(undefined, 'bold'); doc.text(`TOTAL: $${t_final.toLocaleString()}`, 190, y + 10, {align: 'right'});
+                    doc.save(`Astro_${n}.pdf`);
+                    state.cart = []; this.updateBadge(); UI.closeModal('modalCheckout'); UI.closeModal('modalCart'); UI.hideLoader();
+                }
+            };
+
+            const Admin = {
+                async handleImport(files) {
+                    const fArr = Array.from(files);
+                    const excel = fArr.find(f => f.name.match(/\.(xlsx|xls)$/i));
+                    const imgs = fArr.filter(f => f.type.startsWith('image/'));
+                    if(!excel) return UI.toast("FALTA EXCEL");
+                    UI.showLoader("IMPORTANDO...");
+                    for(let f of imgs) {
+                        const n = f.name.split('.')[0].toUpperCase();
+                        await db.imagenes.put({ nombre: n, data: f });
+                    }
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const wb = XLSX.read(e.target.result, { type: 'binary' });
+                        const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+                        const prods = json.map(r => ({
+                            codigo: String(r.CODIGO || '').toUpperCase().trim(),
+                            categoria: String(r.CATEGORIA || 'VARIOS').toUpperCase().trim(),
+                            descripcion: String(r.DESCRIPCION || '').toUpperCase().trim(),
+                            marca: String(r.MARCA || 'ASTRO').toUpperCase().trim(),
+                            precio: Number(r.PRECIO || 0),
+                            promo: String(r.PROMO || '').toUpperCase(),
+                            imagen_ref: r.IMAGEN ? String(r.IMAGEN).toUpperCase().trim() : null
+                        })).filter(p => p.codigo);
+                        await db.productos.clear(); await db.productos.bulkPut(prods);
+                        UI.hideLoader(); UI.toast("ÉXITO"); setTimeout(() => location.reload(), 1000);
+                    };
+                    reader.readAsBinaryString(excel);
+                },
+                async clearAll() { if(confirm("¿BORRAR TODO?")) { await db.delete(); location.reload(); } }
+            };
+
+            document.getElementById('folderInput').addEventListener('change', (e) => Admin.handleImport(e.target.files));
+            document.getElementById('logoInput').addEventListener('change', async (e) => {
+                if(e.target.files[0]) { await db.config.put({id: 'logo', data: e.target.files[0]}); Core.loadLogo(); }
+            });
+            document.getElementById('searchInput').addEventListener('input', (e) => Core.filter());
+
+            return { Core, UI, Cart, Admin };
+        })();
+        window.onload = () => App.Core.init();
+	<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js")
+      .then(reg => console.log("Service Worker registrado"))
+      .catch(err => console.log("Error SW:", err));
+  });
+}
+</script>
+    </script>
+</body>
+</html>

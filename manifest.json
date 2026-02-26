@@ -1,0 +1,15 @@
+{
+  "name": "ASTRO IMPORT",
+  "short_name": "AstroImport",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#0041ab",
+  "theme_color": "#0041ab",
+  "icons": [
+    {
+      "src": "icono.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
