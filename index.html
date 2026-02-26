@@ -444,7 +444,7 @@
             return { Core, UI, Cart, Admin };
         })();
         window.onload = () => App.Core.init();
-	<script>
+	</script>
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js")
@@ -453,13 +453,10 @@ if ("serviceWorker" in navigator) {
   });
 }
 </script>
-    </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-  const { createClient } = supabase;
-
-  const supabaseClient = createClient(
+  const supabaseClient = window.supabase.createClient(
     'https://ueppgvjllztgaswwikir.supabase.co',
     'sb_publishable_7l1biH-2DrD9p6wJG3u09g_BvsX7tAp.'
   );
@@ -480,5 +477,4 @@ if ("serviceWorker" in navigator) {
   cargarProductos();
 </script>
 </body>
-
 </html>
