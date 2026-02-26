@@ -444,15 +444,14 @@
             return { Core, UI, Cart, Admin };
         })();
         window.onload = () => App.Core.init();
-	<script>
-if ("serviceWorker" in navigator) {
+	if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js")
       .then(reg => console.log("Service Worker registrado"))
       .catch(err => console.log("Error SW:", err));
   });
 }
-</script>
+
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
@@ -479,3 +478,4 @@ if ("serviceWorker" in navigator) {
 </body>
 
 </html>
+
