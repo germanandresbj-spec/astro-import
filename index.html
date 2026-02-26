@@ -454,5 +454,31 @@ if ("serviceWorker" in navigator) {
 }
 </script>
     </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  const { createClient } = supabase;
+
+  const supabaseClient = createClient(
+    'https://ueppgvjllztgaswwikir.supabase.co',
+    'sb_publishable_7l1biH-2DrD9p6wJG3u09g_BvsX7tAp.'
+  );
+
+  async function cargarProductos() {
+    const { data, error } = await supabaseClient
+      .from('productos')
+      .select('*');
+
+    if (error) {
+      console.error('Error cargando productos:', error);
+      return;
+    }
+
+    console.log('Productos:', data);
+  }
+
+  cargarProductos();
+</script>
 </body>
+
 </html>
