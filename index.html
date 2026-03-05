@@ -390,10 +390,14 @@ const { data } = supabaseClient
 			document.getElementById("posKeyboard").classList.remove("hidden");
 		},
 			press(n){
-			this.valor += n;
-			document.getElementById("posDisplay").value = this.valor;
-			},
-			clear(){
+    this.valor += n;
+    document.getElementById("posDisplay").value = this.valor;
+},
+
+clear(){
+    this.valor = "";
+    document.getElementById("posDisplay").value = "";
+}
 			this.valor = '';
 			document.getElementById("posDisplay").value = '';
 			},
