@@ -390,12 +390,7 @@ if (p.imagen_ref) {
 			document.getElementById("posKeyboard").classList.remove("hidden");
 		},
 			
-			this.codigo = codigo;
-			this.valor = valor.toString();
-			this.tipo = tipo;
-			document.getElementById("posDisplay").value = this.valor;
-			document.getElementById("posKeyboard").classList.remove("hidden");
-			},
+			
 			press(n){
 			this.valor += n;
 			document.getElementById("posDisplay").value = this.valor;
@@ -483,12 +478,12 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 					
 		<div class="flex justify-between items-center mt-2">
     		<span class="text-xs">Precio Unit.</span>
-    <input 
-        <input
-		readonly
-		value="${i.p_venta}"
-		onclick="Cart.POS.open('${i.codigo}',${i.p_venta},'precio')"
-		class="w-24 text-right font-black border rounded-lg p-1 cursor-pointer">				</div>
+    <input
+	readonly
+	value="${i.p_venta}"
+	onclick="App.Cart.POS.open('${i.codigo}',${i.p_venta},'precio')"
+	class="w-24 text-right font-black border rounded-lg p-1 cursor-pointer">
+				</div>
                             </div>
                         `;
                     }).join('');
@@ -660,7 +655,7 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 <button onclick="App.Cart.POS.press(3)" class="btnKey">3</button>
 
 <button onclick="App.Cart.POS.press(0)" class="btnKey">0</button>
-<button onclick="App.Cart.POS.press()" class="btnKey bg-red-500 text-white">C</button>
+<button onclick="App.Cart.POS.clear()" class="btnKey bg-red-500 text-white">C</button>
 <button onclick="App.Cart.POS.ok()" class="btnKey bg-green-500 text-white">OK</button>
 
 </div>
