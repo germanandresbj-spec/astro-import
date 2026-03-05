@@ -1,4 +1,4 @@
-const CACHE_NAME = "astro-import-v2";
+const CACHE_NAME = "astro-import-v3";
 
 const urlsToCache = [
   "/",

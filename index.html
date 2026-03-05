@@ -313,9 +313,10 @@ if (p.imagen_ref) {
         .storage
         .from('Productos')
         .getPublicUrl(p.imagen_ref);
-
+	if (data && data.publicUrl) {
     imageUrl = data.publicUrl;
-}                        
+}                 
+}
                         if(imageUrl) {
                             const card = document.createElement('div');
                             card.className = "bg-white p-2 rounded-2xl shadow-sm border border-slate-200 active:scale-95 cursor-pointer";
@@ -372,12 +373,26 @@ if (p.imagen_ref) {
                     UI.toast("AGREGADO"); this.updateBadge();
                 },
                 
-		const POS = {
-			codigo:null,
-			valor:'',
-			open(codigo,cant){
+			POS : {
+    			codigo:null,
+    			valor:'',
+    			tipo:null,
+			open(codigo,valor,tipo){
+
 			this.codigo = codigo;
-			this.valor = cant.toString();
+			this.valor = valor.toString();
+			this.tipo = tipo;
+
+			document.getElementById("posTitle").textContent =
+			tipo === "precio" ? "Precio" : "Cantidad";
+
+			document.getElementById("posDisplay").value = this.valor;
+			document.getElementById("posKeyboard").classList.remove("hidden");
+		},
+			
+			this.codigo = codigo;
+			this.valor = valor.toString();
+			this.tipo = tipo;
 			document.getElementById("posDisplay").value = this.valor;
 			document.getElementById("posKeyboard").classList.remove("hidden");
 			},
@@ -390,10 +405,10 @@ if (p.imagen_ref) {
 			document.getElementById("posDisplay").value = '';
 			},
 			ok(){
-			Cart.updateManual(this.codigo,this.valor,'cant');
+			Cart.updateManual(this.codigo,this.valor,this.tipo);
 			document.getElementById("posKeyboard").classList.add("hidden");
 			}
-			};
+			},
 		updateQty(c, d) {
                     const i = state.cart.find(x => x.codigo === c);
                     if(i) { i.cant += d; if(i.cant <= 0) state.cart = state.cart.filter(x => x.codigo !== c); }
@@ -451,7 +466,7 @@ if (p.imagen_ref) {
 			<input
 readonly
 value="${i.cant}"
-onclick="POS.open('${i.codigo}',${i.cant})"
+onclick="App.Cart.POS.open('${i.codigo}',${i.cant},'cant')"
 class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 >
 
@@ -469,13 +484,11 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 		<div class="flex justify-between items-center mt-2">
     		<span class="text-xs">Precio Unit.</span>
     <input 
-        type="number"
-        inputmode="numeric"
-        min="${i.precio}"
-        value="${i.p_venta}"
-        onchange="App.Cart.updateManual('${i.codigo}', this.value, 'precio')"
-        class="w-24 text-right font-black border rounded-lg p-1">
-					</div>
+        <input
+		readonly
+		value="${i.p_venta}"
+		onclick="Cart.POS.open('${i.codigo}',${i.p_venta},'precio')"
+		class="w-24 text-right font-black border rounded-lg p-1 cursor-pointer">				</div>
                             </div>
                         `;
                     }).join('');
@@ -627,28 +640,28 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 <div class="bg-white w-full max-w-md rounded-t-2xl p-4 shadow-xl">
 
 <div class="text-center font-bold text-lg mb-3">
-Cantidad
+<span id="posTitle">Cantidad</span>
 </div>
 
 <input id="posDisplay" class="w-full border rounded-xl text-center text-2xl p-3 mb-3" readonly>
 
 <div class="grid grid-cols-3 gap-3 text-xl">
 
-<button onclick="POS.press(7)" class="btnKey">7</button>
-<button onclick="POS.press(8)" class="btnKey">8</button>
-<button onclick="POS.press(9)" class="btnKey">9</button>
+<button onclick="App.Cart.POS.press(7)" class="btnKey">7</button>
+<button onclick="App.Cart.POS.press(8)" class="btnKey">8</button>
+<button onclick="App.Cart.POS.press(9)" class="btnKey">9</button>
 
-<button onclick="POS.press(4)" class="btnKey">4</button>
-<button onclick="POS.press(5)" class="btnKey">5</button>
-<button onclick="POS.press(6)" class="btnKey">6</button>
+<button onclick="App.Cart.POS.press(4)" class="btnKey">4</button>
+<button onclick="App.Cart.POS.press(5)" class="btnKey">5</button>
+<button onclick="App.Cart.POS.press(6)" class="btnKey">6</button>
 
-<button onclick="POS.press(1)" class="btnKey">1</button>
-<button onclick="POS.press(2)" class="btnKey">2</button>
-<button onclick="POS.press(3)" class="btnKey">3</button>
+<button onclick="App.Cart.POS.press(1)" class="btnKey">1</button>
+<button onclick="App.Cart.POS.press(2)" class="btnKey">2</button>
+<button onclick="App.Cart.POS.press(3)" class="btnKey">3</button>
 
-<button onclick="POS.press(0)" class="btnKey">0</button>
-<button onclick="POS.clear()" class="btnKey bg-red-500 text-white">C</button>
-<button onclick="POS.ok()" class="btnKey bg-green-500 text-white">OK</button>
+<button onclick="App.Cart.POS.press(0)" class="btnKey">0</button>
+<button onclick="App.Cart.POS.press()" class="btnKey bg-red-500 text-white">C</button>
+<button onclick="App.Cart.POS.ok()" class="btnKey bg-green-500 text-white">OK</button>
 
 </div>
 </div>
