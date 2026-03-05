@@ -39,6 +39,13 @@
         /* Animaciones suaves para móviles */
         .slide-up { animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.btnKey{
+padding:16px;
+background:#f1f5f9;
+border-radius:10px;
+font-weight:bold;
+}
     </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
@@ -202,13 +209,17 @@
                     <span class="block font-bold">Seleccionar Carpeta</span>
                 </label>
             </div>
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 gap-4">
                 <label class="py-4 bg-slate-800 rounded-2xl text-center cursor-pointer border border-white/10 font-bold text-[10px] uppercase flex flex-col items-center justify-center">
                     <input type="file" id="logoInput" accept="image/*" class="hidden">
                     <i data-lucide="image" class="w-5 h-5 mb-1"></i> Logo
                 </label>
                 <button onclick="App.Admin.clearAll()" class="py-4 bg-red-900/20 text-red-500 border border-red-500/30 rounded-2xl font-bold text-[10px] uppercase">Limpiar Todo</button>
-            </div>
+        <button onclick="App.Admin.syncFromCloud()" 
+class="py-4 bg-blue-600 text-white rounded-2xl font-bold text-[10px] uppercase">
+Actualizar Catálogo
+</button>    
+	</div>
         </div>
     </div>
 
@@ -293,16 +304,30 @@
                     grid.innerHTML = ''; body.innerHTML = '';
 
                     state.filteredProducts.forEach(p => {
-                        const imgKey = p.imagen_ref || p.codigo;
-                        const hasImg = state.imgMap.has(imgKey);
-                        
-                        if(hasImg) {
+
+                
+let imageUrl = '';
+
+if (p.imagen_ref) {
+    const { data } = supabaseClient
+        .storage
+        .from('Productos')
+        .getPublicUrl(p.imagen_ref);
+
+    imageUrl = data.publicUrl;
+}                        
+                        if(imageUrl) {
                             const card = document.createElement('div');
                             card.className = "bg-white p-2 rounded-2xl shadow-sm border border-slate-200 active:scale-95 cursor-pointer";
                             card.onclick = () => this.openFicha(p);
                             card.innerHTML = `
                                 <div class="aspect-square bg-white rounded-xl mb-2 overflow-hidden flex items-center justify-center p-1 relative">
-                                    <img src="${state.imgMap.get(imgKey)}" class="w-full h-full object-contain" loading="lazy">
+                                   
+ <img src="${imageUrl}" 
+     class="w-full h-full object-contain" 
+     loading="lazy"
+     onerror="this.style.display='none'">
+
                                     ${p.promo === 'SI' ? '<span class="absolute top-1 right-1 bg-red-500 text-white text-[7px] font-black px-1 py-0.5 rounded italic">PROMO</span>' : ''}
                                 </div>
                                 <h4 class="text-[9px] font-bold text-slate-700 leading-tight h-7 line-clamp-2 uppercase">${p.descripcion}</h4>
@@ -340,18 +365,67 @@
                 showLoader(m) { document.getElementById('loaderMsg').textContent = m; document.getElementById('globalLoader').classList.remove('hidden'); },
                 hideLoader() { document.getElementById('globalLoader').classList.add('hidden'); }
             };
-
-            const Cart = {
+         	const Cart = {
                 add(p) {
                     const e = state.cart.find(i => i.codigo === p.codigo);
-                    if(e) e.cant++; else state.cart.push({...p, cant: 1, p_venta: p.precio});
+                    if(e) e.cant++; else state.cart.push({...p, cant: 1, p_venta: Number(p.precio)});
                     UI.toast("AGREGADO"); this.updateBadge();
                 },
-                updateQty(c, d) {
+                
+		const POS = {
+			codigo:null,
+			valor:'',
+			open(codigo,cant){
+			this.codigo = codigo;
+			this.valor = cant.toString();
+			document.getElementById("posDisplay").value = this.valor;
+			document.getElementById("posKeyboard").classList.remove("hidden");
+			},
+			press(n){
+			this.valor += n;
+			document.getElementById("posDisplay").value = this.valor;
+			},
+			clear(){
+			this.valor = '';
+			document.getElementById("posDisplay").value = '';
+			},
+			ok(){
+			Cart.updateManual(this.codigo,this.valor,'cant');
+			document.getElementById("posKeyboard").classList.add("hidden");
+			}
+			};
+		updateQty(c, d) {
                     const i = state.cart.find(x => x.codigo === c);
                     if(i) { i.cant += d; if(i.cant <= 0) state.cart = state.cart.filter(x => x.codigo !== c); }
                     this.render(); this.updateBadge();
                 },
+	updateManual(codigo, valor, tipo) {
+    		const item = state.cart.find(x => x.codigo === codigo);
+    		if (!item) return;
+    		const num = Number(valor);
+    	// Validar número
+    		if (isNaN(num) || num <= 0) {
+        	UI.toast("Valor inválido");
+        	this.render();
+        	return;
+		    }
+    	// Si es cantidad
+    		if (tipo === 'cant') {
+        	item.cant = Math.floor(num);
+    		}
+    // Si es precio
+    		if (tipo === 'precio') {
+      // No permitir vender por debajo del precio base
+       		if (num < item.precio) {
+            	UI.toast("No puede vender por debajo del precio base");
+            	this.render();
+            	return;
+        	}
+        item.p_venta = num;
+    }
+    this.render();
+    this.updateBadge();
+},
                 updateBadge() {
                     const total = state.cart.reduce((s, i) => s + i.cant, 0);
                     const b = document.getElementById('cartCount');
@@ -370,12 +444,38 @@
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <div class="flex items-center bg-slate-100 rounded-xl">
-                                        <button onclick="App.Cart.updateQty('${i.codigo}', -1)" class="p-2 text-red-500"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
-                                        <span class="px-2 font-black">${i.cant}</span>
-                                        <button onclick="App.Cart.updateQty('${i.codigo}', 1)" class="p-2 text-green-500"><i data-lucide="plus-circle" class="w-4 h-4"></i></button>
-                                    </div>
-                                    <span class="font-black text-azul-rey">$${(i.p_venta * i.cant).toLocaleString()}</span>
-                                </div>
+                                        <button onclick="App.Cart.updateQty('${i.codigo}', -1)" class="p-2 text-red-500"><i data-lucide="minus-circle" class="w-4 h-4">
+					</i></button>
+                       
+					<!-- INPUT CANTIDAD -->
+			<input
+readonly
+value="${i.cant}"
+onclick="POS.open('${i.codigo}',${i.cant})"
+class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
+>
+
+                                        <button onclick="App.Cart.updateQty('${i.codigo}', 1)" class="p-2 text-green-500">
+					<i data-lucide="plus-circle" class="w-4 h-4"></i>
+				</button>
+                             </div>
+                                	 <span class="font-black text-azul-rey">
+				           $${(i.p_venta * i.cant).toLocaleString()}
+        				</span>
+    					</div>
+			
+			<!-- INPUT PRECIO -->
+					
+		<div class="flex justify-between items-center mt-2">
+    		<span class="text-xs">Precio Unit.</span>
+    <input 
+        type="number"
+        inputmode="numeric"
+        min="${i.precio}"
+        value="${i.p_venta}"
+        onchange="App.Cart.updateManual('${i.codigo}', this.value, 'precio')"
+        class="w-24 text-right font-black border rounded-lg p-1">
+					</div>
                             </div>
                         `;
                     }).join('');
@@ -432,9 +532,47 @@
                     };
                     reader.readAsBinaryString(excel);
                 },
-                async clearAll() { if(confirm("¿BORRAR TODO?")) { await db.delete(); location.reload(); } }
-            };
+                async clearAll() {
+        try {
+            await db.productos.clear();
+            UI.toast("BASE LIMPIA");
+            setTimeout(() => location.reload(), 1000);
+        } catch (err) {
+            console.error(err);
+            UI.toast("ERROR");
+        }
+    },
+    async syncFromCloud() {
 
+        
+
+        UI.showLoader("ACTUALIZANDO...");
+
+        const { data, error } = await supabaseClient
+            .from('productos')
+            .select('*');
+
+        if (error) {
+            UI.hideLoader();
+            UI.toast("ERROR NUBE");
+            console.error(error);
+            return;
+        }
+
+        try {
+            await db.productos.clear();
+            await db.productos.bulkPut(data);
+            UI.toast("CATÁLOGO ACTUALIZADO");
+            setTimeout(() => location.reload(), 1000);
+        } catch (err) {
+            console.error(err);
+            UI.toast("ERROR GUARDANDO");
+        }
+
+        UI.hideLoader();
+    }
+
+};
             document.getElementById('folderInput').addEventListener('change', (e) => Admin.handleImport(e.target.files));
             document.getElementById('logoInput').addEventListener('change', async (e) => {
                 if(e.target.files[0]) { await db.config.put({id: 'logo', data: e.target.files[0]}); Core.loadLogo(); }
@@ -443,39 +581,79 @@
 
             return { Core, UI, Cart, Admin };
         })();
-        window.onload = () => App.Core.init();
-	if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js")
-      .then(reg => console.log("Service Worker registrado"))
-      .catch(err => console.log("Error SW:", err));
-  });
-}
+                window.onload = () => App.Core.init();
 
- <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<script>
-  const supabaseClient = window.supabase.createClient(
-    'https://ueppgvjllztgaswwikir.supabase.co',
-    'sb_publishable_7l1biH-2DrD9p6wJG3u09g_BvsX7tAp.'
-  );
+    </script>
 
-  async function cargarProductos() {
-    const { data, error } = await supabaseClient
-      .from('productos')
-      .select('*');
+    <!-- Service Worker -->
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("/sw.js")
+                    .then(reg => console.log("Service Worker registrado"))
+                    .catch(err => console.log("Error SW:", err));
+            });
+        }
+    </script>
 
-    if (error) {
-      console.error('Error cargando productos:', error);
-      return;
-    }
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    console.log('Productos:', data);
-  }
+    <script>
+        const supabaseClient = window.supabase.createClient(
+            'https://ueppgvjllztgaswwikir.supabase.co',
+           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlcHBndmpsbHp0Z2Fzd3dpa2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNzY2MjIsImV4cCI6MjA4NzY1MjYyMn0.MxtbcvKO6dz5iG1gKjfu0GVV_YT6izwdPnPHl6JRStk'
+        );
 
-  cargarProductos();
-</script>
+        async function cargarProductos() {
+            const { data, error } = await supabaseClient
+                .from('productos')
+                .select('*');
+
+            if (error) {
+                console.error('Error cargando productos:', error);
+                return;
+            }
+
+            console.log('Productos:', data);
+        }
+        cargarProductos();
+    </script>
+
+<!-- TECLADO NUMERICO POS -->
+<div id="posKeyboard" class="hidden fixed inset-0 bg-black/40 flex items-end justify-center z-50">
+    
+<div class="bg-white w-full max-w-md rounded-t-2xl p-4 shadow-xl">
+
+<div class="text-center font-bold text-lg mb-3">
+Cantidad
+</div>
+
+<input id="posDisplay" class="w-full border rounded-xl text-center text-2xl p-3 mb-3" readonly>
+
+<div class="grid grid-cols-3 gap-3 text-xl">
+
+<button onclick="POS.press(7)" class="btnKey">7</button>
+<button onclick="POS.press(8)" class="btnKey">8</button>
+<button onclick="POS.press(9)" class="btnKey">9</button>
+
+<button onclick="POS.press(4)" class="btnKey">4</button>
+<button onclick="POS.press(5)" class="btnKey">5</button>
+<button onclick="POS.press(6)" class="btnKey">6</button>
+
+<button onclick="POS.press(1)" class="btnKey">1</button>
+<button onclick="POS.press(2)" class="btnKey">2</button>
+<button onclick="POS.press(3)" class="btnKey">3</button>
+
+<button onclick="POS.press(0)" class="btnKey">0</button>
+<button onclick="POS.clear()" class="btnKey bg-red-500 text-white">C</button>
+<button onclick="POS.ok()" class="btnKey bg-green-500 text-white">OK</button>
+
+</div>
+</div>
+</div>
+
+
 </body>
-
 </html>
-
