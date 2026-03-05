@@ -309,10 +309,10 @@ Actualizar Catálogo
 let imageUrl = '';
 
 if (p.imagen_ref) {
-    const { data } = supabaseClient
-        .storage
-        .from('Productos')
-        .getPublicUrl(p.imagen_ref);
+const { data } = supabaseClient
+    .storage
+    .from('Productos')
+    .getPublicUrl(p.imagen_ref) || {};
 	if (data && data.publicUrl) {
     imageUrl = data.publicUrl;
 }                 
@@ -370,10 +370,10 @@ if (p.imagen_ref) {
                 add(p) {
                     const e = state.cart.find(i => i.codigo === p.codigo);
                     if(e) e.cant++; else state.cart.push({...p, cant: 1, p_venta: Number(p.precio)});
-                    UI.toast("AGREGADO"); this.updateBadge();
+                    UI.toast("AGREGADO");
+			this.updateBadge();
                 },
-                
-			POS : {
+                	POS : {
     			codigo:null,
     			valor:'',
     			tipo:null,
@@ -389,8 +389,6 @@ if (p.imagen_ref) {
 			document.getElementById("posDisplay").value = this.valor;
 			document.getElementById("posKeyboard").classList.remove("hidden");
 		},
-			
-			
 			press(n){
 			this.valor += n;
 			document.getElementById("posDisplay").value = this.valor;
