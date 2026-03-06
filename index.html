@@ -233,15 +233,13 @@ Actualizar Catálogo
     <script>
         const App = (() => {
             const db = new Dexie('AstroImportDB');
-            db.version(1).stores({
+            db.version(2).stores({
                 productos: 'codigo, categoria, marca, descripcion, precio, promo, imagen_ref',
                 imagenes: 'nombre, tipo',
                 config: 'id',
                 ventas: '++id, fecha, cliente'
             });
-
             let state = { allProducts: [], filteredProducts: [], categories: [], currentCategory: 'TODOS', cart: [], imgMap: new Map() };
-
             const Core = {
                 async init() {
                     lucide.createIcons();
@@ -366,152 +364,106 @@ const { data } = supabaseClient
                 showLoader(m) { document.getElementById('loaderMsg').textContent = m; document.getElementById('globalLoader').classList.remove('hidden'); },
                 hideLoader() { document.getElementById('globalLoader').classList.add('hidden'); }
             };
-         	const Cart = {
-                add(p) {
-                    const e = state.cart.find(i => i.codigo === p.codigo);
-                    if(e) e.cant++; else state.cart.push({...p, cant: 1, p_venta: Number(p.precio)});
-                    UI.toast("AGREGADO");
-			this.updateBadge();
-                },
-                	POS : {
-    			codigo:null,
-    			valor:'',
-    			tipo:null,
-			open(codigo,valor,tipo){
 
-			this.codigo = codigo;
-			this.valor = valor.toString();
-			this.tipo = tipo;
 
-			document.getElementById("posTitle").textContent =
-			tipo === "precio" ? "Precio" : "Cantidad";
-
-			document.getElementById("posDisplay").value = this.valor;
-			document.getElementById("posKeyboard").classList.remove("hidden");
-		},
-			press(n){
-    this.valor += n;
-    document.getElementById("posDisplay").value = this.valor;
-},
-
-clear(){
-    this.valor = "";
-    document.getElementById("posDisplay").value = "";
-}
-			this.valor = '';
-			document.getElementById("posDisplay").value = '';
-			},
-			ok(){
-			Cart.updateManual(this.codigo,this.valor,this.tipo);
-			document.getElementById("posKeyboard").classList.add("hidden");
-			}
-			},
-		updateQty(c, d) {
-                    const i = state.cart.find(x => x.codigo === c);
-                    if(i) { i.cant += d; if(i.cant <= 0) state.cart = state.cart.filter(x => x.codigo !== c); }
-                    this.render(); this.updateBadge();
-                },
-	updateManual(codigo, valor, tipo) {
-    		const item = state.cart.find(x => x.codigo === codigo);
-    		if (!item) return;
-    		const num = Number(valor);
-    	// Validar número
-    		if (isNaN(num) || num <= 0) {
-        	UI.toast("Valor inválido");
-        	this.render();
-        	return;
-		    }
-    	// Si es cantidad
-    		if (tipo === 'cant') {
-        	item.cant = Math.floor(num);
-    		}
-    // Si es precio
-    		if (tipo === 'precio') {
-      // No permitir vender por debajo del precio base
-       		if (num < item.precio) {
-            	UI.toast("No puede vender por debajo del precio base");
-            	this.render();
-            	return;
-        	}
-        item.p_venta = num;
+const Cart = {
+    add(p) {
+        const e = state.cart.find(i => i.codigo === p.codigo);
+        if (e) e.cant++; else state.cart.push({ ...p, cant: 1, p_venta: Number(p.precio) });
+        UI.toast("AGREGADO");
+        this.updateBadge();
+    },
+    POS: {
+        codigo: null, valor: '', tipo: null,
+        open(codigo, valor, tipo) {
+            this.codigo = codigo;
+            this.valor = ''; 
+            this.tipo = tipo;
+            document.getElementById("posTitle").textContent = tipo === "precio" ? "PRECIO UNITARIO" : "CANTIDAD";
+            document.getElementById("posDisplay").value = valor;
+            document.getElementById("posKeyboard").classList.remove("hidden");
+        },
+        press(n) {
+            this.valor += n;
+            document.getElementById("posDisplay").value = this.valor;
+        },
+        clear() {
+            this.valor = "";
+            document.getElementById("posDisplay").value = "";
+        },
+        ok() {
+            if (this.valor !== "") Cart.updateManual(this.codigo, this.valor, this.tipo);
+            document.getElementById("posKeyboard").classList.add("hidden");
+        }
+    },
+    updateQty(c, d) {
+        const i = state.cart.find(x => x.codigo === c);
+        if (i) { i.cant += d; if (i.cant <= 0) state.cart = state.cart.filter(x => x.codigo !== c); }
+        this.render(); this.updateBadge();
+    },
+    updateManual(codigo, valor, tipo) {
+        const item = state.cart.find(x => x.codigo === codigo);
+        if (!item) return;
+        const num = Number(valor);
+        if (isNaN(num) || num <= 0) { UI.toast("VALOR INVÁLIDO"); return; }
+        if (tipo === 'cant') item.cant = Math.floor(num);
+        if (tipo === 'precio') item.p_venta = num;
+        this.render(); this.updateBadge();
+    },
+    updateBadge() {
+        const total = state.cart.reduce((s, i) => s + i.cant, 0);
+        const b = document.getElementById('cartCount');
+        b.textContent = total; b.classList.toggle('hidden', total === 0);
+    },
+    render() {
+        const cont = document.getElementById('cartItems');
+        let tot = 0;
+        cont.innerHTML = state.cart.map(i => {
+            tot += (i.p_venta * i.cant);
+            return `
+                <div class="bg-white p-4 rounded-2xl shadow-sm flex flex-col gap-2">
+                    <div class="flex justify-between items-start">
+                        <h5 class="text-[10px] font-bold uppercase w-2/3">${i.descripcion}</h5>
+                        <span class="text-[8px] font-mono">${i.codigo}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center bg-slate-100 rounded-xl">
+                            <button onclick="App.Cart.updateQty('${i.codigo}', -1)" class="p-2 text-red-500"><i data-lucide="minus-circle" class="w-4 h-4"></i></button>
+                            <input readonly value="${i.cant}" onclick="App.Cart.POS.open('${i.codigo}',${i.cant},'cant')" class="w-12 text-center font-black bg-transparent cursor-pointer">
+                            <button onclick="App.Cart.updateQty('${i.codigo}', 1)" class="p-2 text-green-500"><i data-lucide="plus-circle" class="w-4 h-4"></i></button>
+                        </div>
+                        <span class="font-black text-azul-rey">$${(i.p_venta * i.cant).toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between items-center mt-1 pt-1 border-t border-dashed">
+                        <span class="text-[9px] text-slate-400 font-bold">PRECIO UNIT.</span>
+                        <input readonly value="${i.p_venta}" onclick="App.Cart.POS.open('${i.codigo}',${i.p_venta},'precio')" class="w-20 text-right font-bold text-slate-600 bg-transparent cursor-pointer">
+                    </div>
+                </div>`;
+        }).join('');
+        document.getElementById('cartTotal').textContent = `$${tot.toLocaleString()}`;
+        lucide.createIcons();
+    },
+    async generatePDF() {
+        const n = document.getElementById('cliNombre').value;
+        const nit = document.getElementById('cliNit').value;
+        if (!n) return UI.toast("NOMBRE VACÍO");
+        UI.showLoader("GENERANDO...");
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.setFontSize(16); doc.setTextColor(0, 65, 171); doc.text("ASTRO IMPORT - PEDIDO", 10, 20);
+        doc.setFontSize(10); doc.setTextColor(50); doc.text(`Cliente: ${n.toUpperCase()} | NIT: ${nit}`, 10, 30);
+        let y = 45; let t_final = 0;
+        state.cart.forEach(i => {
+            const st = i.p_venta * i.cant; t_final += st;
+            doc.text(`${i.codigo} | ${i.descripcion.substring(0, 30)}... x${i.cant}`, 10, y);
+            doc.text(`$${st.toLocaleString()}`, 190, y, { align: 'right' }); y += 7;
+        });
+        doc.setFont(undefined, 'bold'); doc.text(`TOTAL: $${t_final.toLocaleString()}`, 190, y + 10, { align: 'right' });
+        doc.save(`Astro_${n}.pdf`);
+        state.cart = []; this.updateBadge(); UI.closeModal('modalCheckout'); UI.closeModal('modalCart'); UI.hideLoader();
     }
-    this.render();
-    this.updateBadge();
-},
-                updateBadge() {
-                    const total = state.cart.reduce((s, i) => s + i.cant, 0);
-                    const b = document.getElementById('cartCount');
-                    b.textContent = total; b.classList.toggle('hidden', total === 0);
-                },
-                render() {
-                    const cont = document.getElementById('cartItems');
-                    let tot = 0;
-                    cont.innerHTML = state.cart.map(i => {
-                        tot += (i.p_venta * i.cant);
-                        return `
-                            <div class="bg-white p-4 rounded-2xl shadow-sm flex flex-col gap-2">
-                                <div class="flex justify-between items-start">
-                                    <h5 class="text-[10px] font-bold uppercase w-2/3">${i.descripcion}</h5>
-                                    <span class="text-[8px] font-mono">${i.codigo}</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <div class="flex items-center bg-slate-100 rounded-xl">
-                                        <button onclick="App.Cart.updateQty('${i.codigo}', -1)" class="p-2 text-red-500"><i data-lucide="minus-circle" class="w-4 h-4">
-					</i></button>
-                       
-					<!-- INPUT CANTIDAD -->
-			<input
-readonly
-value="${i.cant}"
-onclick="App.Cart.POS.open('${i.codigo}',${i.cant},'cant')"
-class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
->
+};
 
-                                        <button onclick="App.Cart.updateQty('${i.codigo}', 1)" class="p-2 text-green-500">
-					<i data-lucide="plus-circle" class="w-4 h-4"></i>
-				</button>
-                             </div>
-                                	 <span class="font-black text-azul-rey">
-				           $${(i.p_venta * i.cant).toLocaleString()}
-        				</span>
-    					</div>
-			
-			<!-- INPUT PRECIO -->
-					
-		<div class="flex justify-between items-center mt-2">
-    		<span class="text-xs">Precio Unit.</span>
-    <input
-	readonly
-	value="${i.p_venta}"
-	onclick="App.Cart.POS.open('${i.codigo}',${i.p_venta},'precio')"
-	class="w-24 text-right font-black border rounded-lg p-1 cursor-pointer">
-				</div>
-                            </div>
-                        `;
-                    }).join('');
-                    document.getElementById('cartTotal').textContent = `$${tot.toLocaleString()}`;
-                    lucide.createIcons();
-                },
-                async generatePDF() {
-                    const n = document.getElementById('cliNombre').value;
-                    const nit = document.getElementById('cliNit').value;
-                    if(!n) return UI.toast("NOMBRE VACÍO");
-                    UI.showLoader("GENERANDO...");
-                    const { jsPDF } = window.jspdf;
-                    const doc = new jsPDF();
-                    doc.setFontSize(16); doc.setTextColor(0, 65, 171); doc.text("ASTRO IMPORT - PEDIDO", 10, 20);
-                    doc.setFontSize(10); doc.setTextColor(50); doc.text(`Cliente: ${n.toUpperCase()} | NIT: ${nit}`, 10, 30);
-                    let y = 45; let t_final = 0;
-                    state.cart.forEach(i => {
-                        const st = i.p_venta * i.cant; t_final += st;
-                        doc.text(`${i.codigo} | ${i.descripcion.substring(0,30)}... x${i.cant}`, 10, y);
-                        doc.text(`$${st.toLocaleString()}`, 190, y, {align: 'right'}); y += 7;
-                    });
-                    doc.setFont(undefined, 'bold'); doc.text(`TOTAL: $${t_final.toLocaleString()}`, 190, y + 10, {align: 'right'});
-                    doc.save(`Astro_${n}.pdf`);
-                    state.cart = []; this.updateBadge(); UI.closeModal('modalCheckout'); UI.closeModal('modalCart'); UI.hideLoader();
-                }
-            };
 
             const Admin = {
                 async handleImport(files) {
@@ -592,8 +544,6 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
             return { Core, UI, Cart, Admin };
         })();
                 window.onload = () => App.Core.init();
-
-
     </script>
 
     <!-- Service Worker -->
@@ -663,7 +613,28 @@ class="w-14 text-center font-black border rounded-lg p-1 cursor-pointer"
 </div>
 </div>
 </div>
-
-
+<div id="posKeyboard" class="fixed inset-0 bg-black/80 z-[150] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white w-full max-w-xs rounded-[2rem] overflow-hidden shadow-2xl">
+        <div class="p-6 bg-slate-50 text-center border-b">
+            <h3 id="posTitle" class="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Cantidad</h3>
+            <input type="text" id="posDisplay" readonly class="w-full text-4xl font-black text-azul-rey text-center bg-transparent outline-none">
+        </div>
+        <div class="grid grid-cols-3 gap-2 p-4 bg-white">
+            <button onclick="App.Cart.POS.press('1')" class="btnKey text-2xl active:bg-slate-200">1</button>
+            <button onclick="App.Cart.POS.press('2')" class="btnKey text-2xl active:bg-slate-200">2</button>
+            <button onclick="App.Cart.POS.press('3')" class="btnKey text-2xl active:bg-slate-200">3</button>
+            <button onclick="App.Cart.POS.press('4')" class="btnKey text-2xl active:bg-slate-200">4</button>
+            <button onclick="App.Cart.POS.press('5')" class="btnKey text-2xl active:bg-slate-200">5</button>
+            <button onclick="App.Cart.POS.press('6')" class="btnKey text-2xl active:bg-slate-200">6</button>
+            <button onclick="App.Cart.POS.press('7')" class="btnKey text-2xl active:bg-slate-200">7</button>
+            <button onclick="App.Cart.POS.press('8')" class="btnKey text-2xl active:bg-slate-200">8</button>
+            <button onclick="App.Cart.POS.press('9')" class="btnKey text-2xl active:bg-slate-200">9</button>
+            <button onclick="App.Cart.POS.clear()" class="btnKey text-red-500 text-xl active:bg-red-100">C</button>
+            <button onclick="App.Cart.POS.press('0')" class="btnKey text-2xl active:bg-slate-200">0</button>
+            <button onclick="App.Cart.POS.ok()" class="btnKey bg-green-600 text-white text-xl active:scale-95">OK</button>
+        </div>
+        <button onclick="document.getElementById('posKeyboard').classList.add('hidden')" class="w-full py-4 text-slate-400 text-xs font-bold uppercase">Cancelar</button>
+    </div>
+</div>
 </body>
 </html>
