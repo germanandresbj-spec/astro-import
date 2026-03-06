@@ -18,23 +18,35 @@ self.addEventListener("install", event => {
 // FETCH
 self.addEventListener("fetch", event => {
 
-  // Solo manejar recursos del mismo dominio
+  if (event.request.method !== "GET") return;
+
   if (event.request.url.startsWith(self.location.origin)) {
 
     event.respondWith(
       caches.match(event.request)
         .then(response => {
-          return response || fetch(event.request)
+
+          if (response) return response;
+
+          return fetch(event.request)
             .then(fetchResponse => {
-              return caches.open(CACHE_NAME)
-                .then(cache => {
-                  cache.put(event.request, fetchResponse.clone());
-                  return fetchResponse;
-                });
+
+              if (!fetchResponse || fetchResponse.status !== 200) {
+                return fetchResponse;
+              }
+
+              const responseClone = fetchResponse.clone();
+
+              caches.open(CACHE_NAME)
+                .then(cache => cache.put(event.request, responseClone));
+
+              return fetchResponse;
             });
+
         })
         .catch(() => {
-          return caches.match("/index.html");
+          return caches.match("/index.html")
+            .then(res => res || new Response("Offline", { status: 503 }));
         })
     );
 
